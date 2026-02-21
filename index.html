@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Middleman System</title>
+
+<style>
+*{
+    box-sizing:border-box;
+}
+
+body{
+    margin:0;
+    font-family:Arial, Helvetica, sans-serif;
+    background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    color:white;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+    padding:15px;
+}
+
+.card{
+    background:#1e1e1e;
+    width:100%;
+    max-width:420px;
+    padding:25px;
+    border-radius:18px;
+    box-shadow:0 0 25px rgba(0,0,0,0.6);
+    text-align:center;
+}
+
+input{
+    width:100%;
+    padding:14px;
+    margin:12px 0;
+    border:none;
+    border-radius:10px;
+    font-size:16px;
+}
+
+button{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:bold;
+    font-size:16px;
+    margin:8px 0;
+}
+
+.primary{background:#5865F2;color:white;}
+.danger{background:#ff4d4d;color:white;}
+
+.star{
+    font-size:35px;
+    cursor:pointer;
+    color:gray;
+    transition:0.2s;
+}
+.selected{color:gold;}
+
+.timer{
+    font-size:18px;
+    margin:10px 0;
+    color:#ffcc00;
+}
+
+.small{
+    font-size:13px;
+    color:#aaa;
+}
+</style>
+</head>
+
+<body>
+
+<div id="app"></div>
+
+<script>
+
+const WEBHOOK_PEDIDO = "https://discord.com/api/webhooks/1455217075017744514/333hPTlrLLtOIKfAnSQCAxS_XqCafmEsGL-pOv1UxIkFCbtpGCzAQU8-OugYwxt4-Nlq";
+const WEBHOOK_AVALIACAO = "https://discord.com/api/webhooks/1455577215453626399/i-CuXWg6aeugQa-nnQIf1topAbR-e8v-kGU5UAB-VBgeHL_7503eWQ-N7FveNgZTfEGu";
+const WEBHOOK_CANCELAR = "https://discord.com/api/webhooks/1455212221784260743/6CdTWhj4Jec6nACC8Ayzaphpmo-TlldXamOE_4eZocbcyuRACB9Anc7cTJ_lnuiTPsb6";
+const LINK_DISCORD = "https://discord.gg/z4j6pWySWF";
+
+let codigoMiddle="";
+let codigoConfirmacao="";
+let estrelasSelecionadas=0;
+let expiracao=0;
+let timerInterval=null;
+let avaliacaoEnviada=false;
+let nickUsuario="";
+
+inicial();
+
+function inicial(){
+    clearInterval(timerInterval);
+    document.getElementById("app").innerHTML=`
+    <div class="card">
+        <h2>📌 Sistema Middleman</h2>
+        <input type="text" id="nick" placeholder="Digite seu nick">
+        <button class="primary" onclick="gerarPedido()">Gerar Código</button>
+    </div>`;
+}
+
+function gerarCodigoMiddle(){
+    return "MM-" + Math.floor(100000 + Math.random()*900000);
+}
+
+function gerarCodigoConfirmacao(){
+    const chars="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let r="";
+    for(let i=0;i<8;i++){
+        r+=chars[Math.floor(Math.random()*chars.length)];
+    }
+    return r;
+}
+
+function gerarPedido(){
+    nickUsuario=document.getElementById("nick").value;
+    if(!nickUsuario){alert("Digite seu nick!");return;}
+
+    codigoMiddle=gerarCodigoMiddle();
+    codigoConfirmacao=gerarCodigoConfirmacao();
+    expiracao = Date.now() + 1200000; // 20 minutos;
+    avaliacaoEnviada=false;
+
+    fetch(WEBHOOK_PEDIDO,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            embeds:[{
+                title:"📌 Novo Pedido",
+                color:5763719,
+                fields:[
+                    {name:"Nick",value:nickUsuario},
+                    {name:"Código Middle",value:codigoMiddle},
+                    {name:"Código Confirmação (SECRETO)",value:codigoConfirmacao}
+                ],
+                timestamp:new Date()
+            }]
+        })
+    });
+
+    document.getElementById("app").innerHTML=`
+    <div class="card">
+        <h3>✅ Pedido Gerado</h3>
+        <p><b>${codigoMiddle}</b></p>
+        <div class="timer" id="timer">⏳ 20:00</div>
+        <button class="primary" onclick="window.location.href='${LINK_DISCORD}'">Ir para Discord</button>
+        <hr>
+        <h4>Digite o código de confirmação:</h4>
+        <input type="text" id="confirmInput" placeholder="Código de confirmação">
+        <button class="primary" onclick="verificar()">Confirmar</button>
+        <button class="danger" onclick="cancelar()">Cancelar Middle</button>
+    </div>`;
+
+    iniciarTimer();
+}
+
+function iniciarTimer(){
+    timerInterval=setInterval(()=>{
+        const tempoRestante=expiracao-Date.now();
+        if(tempoRestante<=0){
+            clearInterval(timerInterval);
+            alert("Código expirado!");
+            inicial();
+            return;
+        }
+        const minutos=Math.floor(tempoRestante/60000);
+        const segundos=Math.floor((tempoRestante%60000)/1000);
+        document.getElementById("timer").innerText=
+            "⏳ "+String(minutos).padStart(2,'0')+":"+
+            String(segundos).padStart(2,'0');
+    },1000);
+}
+
+function verificar(){
+    if(Date.now()>expiracao){
+        alert("Código expirado!");
+        inicial();
+        return;
+    }
+    const valor=document.getElementById("confirmInput").value;
+    if(valor===codigoConfirmacao){
+        clearInterval(timerInterval);
+        telaAvaliacao();
+    }else{
+        alert("Código incorreto!");
+    }
+}
+
+function cancelar(){
+    clearInterval(timerInterval);
+
+    fetch(WEBHOOK_CANCELAR,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            embeds:[{
+                title:"❌ Middle Cancelado",
+                color:16711680,
+                fields:[
+                    {name:"Nick",value:nickUsuario},
+                    {name:"Código",value:codigoMiddle}
+                ],
+                timestamp:new Date()
+            }]
+        })
+    });
+
+    document.getElementById("app").innerHTML=`
+    <div class="card">
+        <h2 style="color:#ff4d4d;">Middle Cancelado :(</h2>
+    </div>`;
+}
+
+function telaAvaliacao(){
+    document.getElementById("app").innerHTML=`
+    <div class="card">
+        <h2>⭐ Avalie o Middle</h2>
+        <div>
+            <span class="star" onclick="selecionar(1)">★</span>
+            <span class="star" onclick="selecionar(2)">★</span>
+            <span class="star" onclick="selecionar(3)">★</span>
+            <span class="star" onclick="selecionar(4)">★</span>
+            <span class="star" onclick="selecionar(5)">★</span>
+        </div>
+        <button class="primary" onclick="enviar()">Enviar Avaliação</button>
+    </div>`;
+}
+
+function selecionar(n){
+    estrelasSelecionadas=n;
+    document.querySelectorAll(".star").forEach((s,i)=>{
+        s.classList.toggle("selected",i<n);
+    });
+}
+
+function enviar(){
+    if(avaliacaoEnviada)return;
+    if(estrelasSelecionadas===0){
+        alert("Selecione uma estrela!");
+        return;
+    }
+
+    avaliacaoEnviada=true;
+
+    fetch(WEBHOOK_AVALIACAO,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            embeds:[{
+                title:"⭐ Nova Avaliação",
+                color:16766720,
+                fields:[
+                    {name:"Nick",value:nickUsuario},
+                    {name:"Código",value:codigoMiddle},
+                    {name:"Estrelas",value:estrelasSelecionadas+" ⭐"}
+                ],
+                timestamp:new Date()
+            }]
+        })
+    });
+
+    document.getElementById("app").innerHTML=`
+    <div class="card">
+        <h2 style="color:gold;">⭐ Avaliação enviada com sucesso.</h2>
+        <p class="small">Obrigado pela confiança!</p>
+    </div>`;
+}
+
+</script>
+</body>
+</html>
